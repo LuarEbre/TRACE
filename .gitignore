@@ -1,3 +1,4 @@
 metadrive/
 .venv/
 metadrive
+shell.nix
