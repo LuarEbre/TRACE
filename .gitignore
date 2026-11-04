@@ -1,4 +1,8 @@
 metadrive/
 .venv/
 metadrive
+data/
+trained_models/
+trace_evn/
+.git/
 shell.nix
