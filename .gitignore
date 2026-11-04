@@ -5,3 +5,4 @@ data/
 trained_models/
 trace_evn/
 .git/
+shell.nix
