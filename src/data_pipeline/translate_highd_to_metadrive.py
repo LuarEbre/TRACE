@@ -41,7 +41,7 @@ def convert_highd_to_metadrive_polars(data_dir: str, recording_id: str, output_p
     }
     
     unique_vehicle_ids = df_tracks.select("id").unique().to_series().to_list()
-    print(f"Verarbeite {len(unique_vehicle_ids)} Fahrzeuge über {total_frames} Frames...")
+    print(f"Process {len(unique_vehicle_ids)} Cars of {total_frames} Frames")
     
     for vid in unique_vehicle_ids:
         v_tracks = df_tracks.filter(pl.col("id") == vid).sort("frame")
@@ -107,7 +107,6 @@ def convert_highd_to_metadrive_polars(data_dir: str, recording_id: str, output_p
     print(f"Successfully converted and saved to: {output_path}\n")
     return True
 
-# --- BATCH-VERARBEITUNG FÜR ALLE 60 RECORDINGS ---
 if __name__ == "__main__":
 
     DATA_DIRECTORY = "./data/raw/highD"

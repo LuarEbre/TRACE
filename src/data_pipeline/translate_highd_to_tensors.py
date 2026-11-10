@@ -10,11 +10,11 @@ def convert_highd_to_tensors(data_dir: str, recording_id: str, output_path: str)
     tracks_file = os.path.join(data_dir, f"{prefix}_tracks.csv")
     recording_meta_file = os.path.join(data_dir, f"{prefix}_recordingMeta.csv")
     
+    # Check if file exists
     if not os.path.exists(tracks_file):
-        print(f"Überspringe Recording {prefix}: Datei nicht gefunden unter {tracks_file}")
         return False
 
-    print(f"Lade highD-Daten für Recording {prefix}...")
+    print(f"Loading {prefix}")
     df_tracks = pl.read_csv(tracks_file)
     df_recording_meta = pl.read_csv(recording_meta_file)
     
@@ -62,7 +62,7 @@ def convert_highd_to_tensors(data_dir: str, recording_id: str, output_path: str)
     
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     torch.save(scenario_package, output_path)
-    print(f"Erfolgreich optimiert gespeichert: {output_path}\n")
+    print(f"Succesfully saved at: {output_path}\n")
     return True
 
 if __name__ == "__main__":
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     success_count = 0
 
     # range(1,61) for all 60 highD szenarios
-    for rec_id in range(1, 61):
+    for rec_id in range(0, 60):
         output_file = os.path.join(OUTPUT_DIR, f"highd_recording_{str(rec_id).zfill(2)}.pt")
         
         print(f"Process Szenario {rec_id} of 60")
