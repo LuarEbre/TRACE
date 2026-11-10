@@ -3,6 +3,7 @@ metadrive/
 metadrive
 data/raw/highD/*
 data/training_data/highD/*
+data/training_data/*
 data/translated/highD/*
 trained_models/*
 trace_env/
