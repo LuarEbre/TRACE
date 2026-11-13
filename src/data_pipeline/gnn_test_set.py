@@ -7,7 +7,7 @@ import os
 def create_traffic_graph(car_features, edge_indices, labels=None):
     graph_data = Data(
             x = torch.tensor(car_features, dtype=torch.float32),
-            edge_index = torch.tensor(edge_indices, dtype=torch.float32)             
+            edge_index = torch.tensor(edge_indices, dtype=torch.float32) 
             )
     return graph_data
 
