@@ -3,20 +3,23 @@
 ## Update Aktueller Stand
 
 Simon:
-
 - GNN Protoyp.
 - PyTorch recherche: PyTorch nutzt einen storage für weights, kein gekapseltes oop.
-  Raul:
+
+Raul:
 - Data_Pipeline Script, welches Bilder aus der metadrive sim liefert.
 - CNN Protoyp.
 - Dataset vermutlich nur von metadrive, da highD nur 2D.
-  Leandro:
+
+Leandro:
 - Metadrive config analysiert.
 - Recherche zu LLMs und transformern
-  Kevin:
+
+Kevin:
 - Recherche zu Diffusion Models
 - Diffusion als ergänzen von Daten im highD set (oder von metadrive mit künstlicher verzerrung)
-  Nico:
+
+Nico:
 - Recherche zu Random Forest und Implementierung
 - Fokus auf TTC
 
@@ -35,4 +38,4 @@ Alle:
 
 -> Am Mittwoch? für das gemeinsame arbeiten am Translation-script arbeiten
 
-## Nächstes Sprint meeting am 14.11.2026
+## Nächstes Sprint meeting am 13.11.2026
