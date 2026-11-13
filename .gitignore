@@ -1,11 +1,16 @@
 metadrive/
 .venv/
 metadrive
+<<<<<<< HEAD
 data/raw/highD/*
 data/training_data/highD/*
 data/training_data/*
 data/translated/highD/*
 trained_models/*
+=======
+data/
+trained_models/
+>>>>>>> ac9046f (New env and requirements)
 trace_env/
 .git/
 shell.nix
