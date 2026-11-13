@@ -1,8 +1,12 @@
 metadrive/
 .venv/
+.tracEnv/
 metadrive
 data/
 trained_models/
 trace_evn/
 .git/
 shell.nix
+training_data/
+generate_training_frames.py
+train_3d_cnn.py
