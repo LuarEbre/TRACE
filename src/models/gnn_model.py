@@ -1,4 +1,5 @@
 import torch
+import torchn.nn as nn
 from torch_geometric.nn import GATConv
 
 
@@ -13,17 +14,17 @@ class GNNTrafficRiskPredictor(torch.nn.Module):
         self.conv2 = GATConv(hidden_dim * 2, hidden_dim, heads=1, concat=False)
 
         # Main Sequence Block
-        self.risk_head = torch.nn.Sequential(
+        self.risk_head = nn.Sequential(
 
                 # Linear Layer with dynamic input and 32 output features
-                torch.nn.Linear(hidden_dim, 32),
-                torch.nn.ReLU(),
+                nn.Linear(hidden_dim, 32),
+                nn.ReLU(),
 
                 # 32 input features, 1 output (continious risk value)
-                torch.nn.Linear(32, 1),
+                nn.Linear(32, 1),
 
                 # Scales between 0.0 and 1.0
-                torch.nn.Sigmoid()
+                nn.Sigmoid()
                 )
 
     # defines steps of forward propagation
