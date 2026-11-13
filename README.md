@@ -27,7 +27,7 @@ The framework consists of three core components:
 
 ## Tech Stack
 
-* **Language:** Python 3.10
+* **Language:** Python 3.12
 * **Simulation:** [MetaDrive](https://github.com/metadriverse/metadrive)
 * **Training Data:** [HighD](https://levelxdata.com/highd-dataset/)
 * **Machine Learning:** [PyTorch](https://github.com/pytorch/pytorch), [PyTorch Geometric](https://github.com/pyg-team/pytorch_geometric), [Stable-Baselines3](https://github.com/DLR-RM/stable-baselines3), [Scikit-learn](https://github.com/scikit-learn/scikit-learn)
