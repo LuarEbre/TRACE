@@ -1,5 +1,6 @@
 metadrive/
 .venv/
+.tracEnv/
 metadrive
 .python-version
 data/raw/highD/*
@@ -7,9 +8,11 @@ data/training_data/highD/*
 data/training_data/*
 data/translated/highD/*
 trained_models/*
-data/
 trained_models/
 trace_env/
 .git/
 shell.nix
 src/testing.py
+training_data/
+generate_training_frames.py
+train_3d_cnn.py

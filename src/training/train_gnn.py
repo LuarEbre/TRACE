@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.nn as nn
 from torch_geometric.loader import DataLoader
 
 # Imports from own functions
@@ -9,7 +10,12 @@ from src.data_pipeline.gnn_test_set import generate_test_dataset
 def main():
     DATASET_PATH = "data/gnn_test_dataset.pt"
     SAVE_PATH = "trained_models/gnn_trained.pth" 
+    
     EPOCHS = 10
+    BATCH_SIZE = 16
+
+    # If gpu is found, then use it otherwise use cpu
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # load data
     if os.path.exists(DATASET_PATH):
@@ -18,12 +24,12 @@ def main():
         dataset = generate_test_dataset(num_samples=200, save_path=SAVE_PATH)
 
     # Create dataloader (does batching)
-    loader = DataLoader(dataset, batch_size=16, shuffle=True)
+    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # Create model, optimizer and loss function(MSE)
-    model = GNNTrafficRiskPredictor(in_features=8, hidden_dim=64)
+    model = GNNTrafficRiskPredictor(in_features=8, hidden_dim=64).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    criterion = torch.nn.MSELoss()
+    criterion = nn.MSELoss()
 
     # Training Loop
 
@@ -34,9 +40,13 @@ def main():
 
         # Train model with data in batches
         for batch in loader:
+            
+            # move data to device
+            batch = batch.to(DEVICE)
+
             # reset gradients to zero
             optimizer.zero_grad()
-
+ 
             # forward pass
             pred_risks = model(batch)
 
@@ -56,3 +66,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
