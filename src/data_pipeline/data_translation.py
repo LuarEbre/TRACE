@@ -3,6 +3,7 @@ from pathlib import Path
 import polars as pl
 import numpy as np
 
+#translate highD data to metadrive compliant csv
 def load_and_normalize_highd(tracks_path: str, meta_path: str, direction: int = 2) -> pl.DataFrame:
     """
     Liest highD-Daten ein, filtert auf eine Fahrtrichtung (2 = untere Spuren nach rechts),

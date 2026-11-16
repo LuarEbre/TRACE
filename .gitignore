@@ -12,3 +12,4 @@ trained_models/
 trace_env/
 .git/
 shell.nix
+src/testing.py
