@@ -3,11 +3,11 @@ from torch_geometric.data import Data
 import polars as pl
 import numpy as np
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 # Processes a dataframe into gnn ready dataset
 def process_data(df: pl.DataFrame, radius) -> List[Data]:
-    
+   
     # 1. Change string vector collumns to numeric data
     exprs = []
     for col in ["position", "velocity", "acceleration"]:
@@ -78,13 +78,15 @@ if __name__ == "__main__":
     OUTPUT_DIR = "./data/training_data/highD"
     TARGET_SCENARIOS = None
     
-    RADIUS = 30
+    RADIUS = 30.0
 
     input_path = Path(INPUT_DIR)
     output_path = Path(OUTPUT_DIR)
     
     if TARGET_SCENARIOS:
-        csv_files = [input_path / f"{s}_processed.csv" for s in TARGET_SCENARIOS]
+        csv_files = []
+        for s in TARGET_SCENARIOS:
+            csv_files.append(input_path / f"{s}_processed.csv")
     else:
         csv_files = sorted(input_path.glob("*_processed.csv"))
 
@@ -92,8 +94,8 @@ if __name__ == "__main__":
         df = pl.read_csv(csv)
     
         dataset = process_data(df, radius=RADIUS)
-        
-        output_file = output_path / f"{csv.stem.replace('_processed', '')}_pyg.pth" 
+    
+        output_file = output_path / f"{csv.stem.replace('_processed', '')}_pyg.pth"
     
         torch.save(dataset, output_file)
         print(f"Saved preprocessed dataset at {output_file}")
