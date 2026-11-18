@@ -1,6 +1,7 @@
 metadrive/
 .venv/
 .tracEnv/
+.vscode
 metadrive
 .python-version
 data/raw/highD/*
