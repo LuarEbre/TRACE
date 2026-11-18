@@ -13,6 +13,8 @@ trained_models/
 trace_env/
 .git/
 shell.nix
+src/testing.py
 training_data/
+data
 generate_training_frames.py
 train_3d_cnn.py
