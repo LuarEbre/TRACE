@@ -5,7 +5,7 @@ from torch_geometric.loader import DataLoader
 
 # Imports from own functions
 from src.models.gnn_model import GNNTrafficRiskPredictor
-from src.data_pipeline.gnn_test_set import generate_test_dataset
+from data_pipeline.dataset_preproccessing.gnn_test_set import generate_test_dataset
 
 def main():
     DATASET_PATH = "data/gnn_test_dataset.pt"

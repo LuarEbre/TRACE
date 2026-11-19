@@ -12,3 +12,9 @@ trained_models/
 trace_env/
 .git/
 shell.nix
+src/testing
+src/data_pipeline/dataset_preproccessing/llm_config_trainset.jsonl
+training_data/
+data
+generate_training_frames.py
+train_3d_cnn.py
