@@ -1,9 +1,9 @@
 import torch
-import torchn.nn as nn
+import torch.nn as nn
 from torch_geometric.nn import GATConv
 
 
-class GNNTrafficRiskPredictor(torch.nn.Module):
+class GNNVehiclePositionPredictor(torch.nn.Module):
 
     # defines model structure and layers
     def __init__(self, in_features, hidden_dim):
@@ -14,17 +14,12 @@ class GNNTrafficRiskPredictor(torch.nn.Module):
         self.conv2 = GATConv(hidden_dim * 2, hidden_dim, heads=1, concat=False)
 
         # Main Sequence Block
-        self.risk_head = nn.Sequential(
-
-                # Linear Layer with dynamic input and 32 output features
+        self.pos_head = nn.Sequential(
                 nn.Linear(hidden_dim, 32),
                 nn.ReLU(),
-
-                # 32 input features, 1 output (continious risk value)
-                nn.Linear(32, 1),
-
-                # Scales between 0.0 and 1.0
-                nn.Sigmoid()
+                
+                # Output dimension is 2 (target_x, target_y)
+                nn.Linear(32,2)
                 )
 
     # defines steps of forward propagation
@@ -43,6 +38,6 @@ class GNNTrafficRiskPredictor(torch.nn.Module):
         x = torch.relu(x)
 
         # Main Sequence Block
-        node_risks = self.risk_head(x)
+        pred_positions = self.pos_head(x)
 
-        return node_risks
+        return pred_positions
