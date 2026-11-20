@@ -25,3 +25,4 @@ training_data/
 data
 generate_training_frames.py
 train_3d_cnn.py
+src/data_pipeline/data_translation_old.py

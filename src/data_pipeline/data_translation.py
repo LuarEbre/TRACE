@@ -3,215 +3,162 @@ from pathlib import Path
 import polars as pl
 import numpy as np
 from typing import Optional, List
- 
-# Loads highD tracking and metadata files, filters by driving direction,
-# computes heading angles, and normalizes coordinates/units for MetaDrive compatibility.
-def load_and_normalize_highd(tracks_path: str, meta_path: str, direction: int = 2) -> pl.DataFrame:
-    
-    # Read trajectory tracks data
+
+def translate_data(tracks_path: str, meta_path: str) -> pl.DataFrame:
+
     tracks = pl.read_csv(tracks_path)
-
-    # Read vehicle metadata (ID, vehicle class, and driving direction)
+    # reads from meta only id, class and drivingDirection
     meta = pl.read_csv(meta_path, columns=["id", "class", "drivingDirection"])
-
-    # Inner join tracks and metadata, then filter by the target driving direction
-    df = tracks.join(meta, on="id", how="inner").filter(pl.col("drivingDirection") == direction)
-
-    # Calculate heading angle from velocity components using arctan2
-    heading_array = np.arctan2(-df["yVelocity"].to_numpy(), df["xVelocity"].to_numpy())
-    df = df.with_columns(pl.Series("heading", heading_array))
     
-    # Normalize and rename columns to match MetaDrive schema expectations
+    # inner join, creates dataframe with all vehicles of the scenario
+    df = tracks.join(meta, on="id", how="inner")
+    
+    # calculations
+    x = df.get_column("x") + df.get_column("width") / 2.0
+    y = -(df.get_column("y") + df.get_column("height") / 2.0)
+    vx = df.get_column("xVelocity").to_numpy()
+    vy = -(df.get_column("yVelocity").to_numpy())
+    heading = np.arctan2(vy, vx)
+    ax = df.get_column("xAcceleration")
+    ay = -(df.get_column("yAcceleration"))
+    length = df.get_column("width")
+    width = df.get_column("height")
+    lane_id = df.get_column("laneId")
+    
+    # put calculations into dataframe
+    df = df.with_columns([
+        pl.Series("x", x),
+        pl.Series("y", y),
+        pl.Series("vx", vx),
+        pl.Series("vy", vy),
+        pl.Series("heading", heading),
+        pl.Series("ax", ax),
+        pl.Series("ay", ay),
+        pl.Series("length", length),
+        pl.Series("width", width),
+        pl.Series("lane_id", lane_id),
+    ])
+    
+    # normalize the dataframe
     df_norm = df.select([
         pl.col("frame").cast(pl.Int32),
-        pl.col("id").cast(pl.Utf8),
+        pl.col("id").cast(pl.Int32),
         pl.col("class"),
-        
-        # Shift coordinate center from bounding box top-left to center
-        (pl.col("x") + pl.col("width") / 2.0).round(4).alias("x"),
-        
-        # Invert y-axis to match standard coordinate systems used in simulation
-        (-(pl.col("y") + pl.col("height") / 2.0)).round(4).alias("y"),
-        
-        pl.col("xVelocity").round(4).alias("vx"),
-        (-pl.col("yVelocity")).round(4).alias("vy"),
-        pl.col("xAcceleration").round(4).alias("ax"),
-        (-pl.col("yAcceleration")).round(4).alias("ay"),
-        pl.col("heading").round(4),
-        
-        # highD 'width' corresponds to vehicle length, and 'height' to vehicle width
-        pl.col("width").round(4).alias("length"),
-        pl.col("height").round(4).alias("width"),
-        pl.col("laneId").cast(pl.Int32).alias("lane_id")
-    ])
 
-    # Normalize y-coordinates relative to the maximum y value in the dataset
+        pl.col("x").round(4),
+        pl.col("y").round(4),
+        pl.col("vx").round(4),
+        pl.col("vy").round(4),
+        pl.col("heading").round(4),
+        pl.col("ax").round(4),
+        pl.col("ay").round(4),
+        pl.col("length").round(4),
+        pl.col("height").round(4),
+        pl.col("lane_id").cast(pl.Int32),
+
+        pl.col("precedingId").cast(pl.Int32),
+    ])
+    
+    # Sort the frame after frame and id
+    df_norm = df_norm.sort(["frame", "id"]) 
+
+    # Translate y, so that biggest y is 0 
     y_max = df_norm.select(pl.col("y").max()).item()
     df_norm = df_norm.with_columns(
         (pl.col("y") - y_max).round(4).alias("y")
-    )
-    
+    ) 
+
     return df_norm
 
-# Computes DHW (Distance Headway), THW(Time Headway), 
-# TTC(Time-To-Collision), DRAC(Deceleration Rate to Avoid Crash) and relative speed
-def compute_safety_metrics(df: pl.DataFrame) -> pl.DataFrame:
+# calculate safety metrics
+def calc_metric(df: pl.DataFrame) -> pl.DataFrame:
+    # Retrieve leading vehicle data
+    lead = df.select(
+        "frame",
+        pl.col("id").alias("lead_id"),
+        pl.col("x").alias("lead_x"),
+        pl.col("vx").alias("lead_vx"),
+        pl.col("length").alias("lead_length"),
+    )  
+        
+    df = df.join(lead, 
+                 left_on=["frame", "precedingId"],
+                 right_on=["frame", "lead_id"],
+                 how="left",
+    )
     
-    # Sort by frame, lane, and position to identify the leading vehicle
-    df = df.sort(["frame", "lane_id", "x"])
-
-    # Retrieve leading vehicle data in the same lane and frame (shift(-1) = next row in df)
-    df = df.with_columns([
-        pl.col("x").shift(-1).over(["frame", "lane_id"]).alias("lead_x"),
-        pl.col("y").shift(-1).over(["frame", "lane_id"]).alias("lead_y"),
-        pl.col("vx").shift(-1).over(["frame", "lane_id"]).alias("lead_vx"),
-        pl.col("length").shift(-1).over(["frame", "lane_id"]).alias("lead_length"),
-        pl.col("width").shift(-1).over(["frame", "lane_id"]).alias("lead_width"),
-    ])
-
-    # Compute distance headway, relative speed, and lateral distance to the leading vehicle
-    df = df.with_columns([
-        
-        # Calc dhw
-        pl.max_horizontal(
-            pl.lit(0.01), 
-            (pl.col("lead_x") - pl.col("x")) - (pl.col("length") + pl.col("lead_length")) / 2.0
-        ).alias("dhw"),
-        
-        # Calc relative speed
-        (pl.col("vx") - pl.col("lead_vx")).alias("rel_speed"),
-        
-        # Calc lat_dist to leading vehicle
-        pl.max_horizontal(
-            pl.lit(0.0), 
-            (pl.col("lead_y") - pl.col("y")).abs() - (pl.col("width") + pl.col("lead_width")) / 2.0
-        ).alias("lat_dist")
-    ])
+    # Calculate DHW, distance headway
+    df = df.with_columns(
+        pl.when((pl.col("vx") > 0) & pl.col("lead_x").is_not_null())
+          .then(pl.col("lead_x") - (pl.col("x") + pl.col("length")))
+          .when((pl.col("vx") < 0) & pl.col("lead_x").is_not_null())
+          .then(pl.col("x") - (pl.col("lead_x") + pl.col("length")))
+          .otherwise(-1)
+          .round(4)
+          .alias("dhw")
+    )
     
-    # Compute safety parameters (THW, TTC, DRAC)
-    df = df.with_columns([
-        
-        # Calc thw
-        pl.when(pl.col("vx") > 0.1)
-          .then(pl.min_horizontal(pl.lit(10.0), pl.col("dhw") / pl.col("vx")))
-          .otherwise(pl.lit(10.0))
-          .alias("thw"),
-        
-        # Calc ttc
-        pl.when(pl.col("rel_speed") > 0.05)
-          .then(pl.min_horizontal(pl.lit(10.0), pl.col("dhw") / pl.col("rel_speed")))
-          .otherwise(pl.lit(10.0))
-          .alias("ttc"),
-        
-        # Calc drac
-        pl.when(pl.col("rel_speed") > 0.05)
-          .then((pl.col("rel_speed") ** 2) / (2.0 * pl.col("dhw")))
-          .otherwise(pl.lit(0.0))
-          .alias("drac")
-    ])
+    closing_speed = pl.col("vx").abs() - pl.col("lead_vx").abs()
     
-    # If no lead vehicle exists, change all null values with default values
-    df = df.with_columns([
-        pl.col("dhw").fill_null(250.0).round(4),
-        pl.col("thw").fill_null(10.0).round(4),
-        pl.col("rel_speed").fill_null(0.0).round(4),
-        pl.col("ttc").fill_null(10.0).round(4),
-        pl.col("drac").fill_null(0.0).round(4),
-        pl.col("lat_dist").fill_null(3.5).round(4),
-        # Pet = Post encroachment time
-        pl.lit(10.0).alias("pet")
-    ])
+    # Calculate THW, time headway
+    df = df.with_columns(
+        pl.when(pl.col("vx").abs() > 0)
+          .then(pl.col("dhw") / pl.col("vx").abs())
+          .otherwise(-1)
+          .round(4)
+          .alias("thw")
+    )
     
-    # Metadrive has vector attributes as strings in format "[x, y]"
-    df = df.with_columns([
-        pl.concat_str([pl.lit("["), pl.col("x"), pl.lit(", "), pl.col("y"), pl.lit("]")]).alias("position"),
-        pl.concat_str([pl.lit("["), pl.col("vx"), pl.lit(", "), pl.col("vy"), pl.lit("]")]).alias("velocity"),
-        pl.concat_str([pl.lit("["), pl.col("ax"), pl.lit(", "), pl.col("ay"), pl.lit("]")]).alias("acceleration")
-    ])
+    # Calculate TTC, time to collision
+    df = df.with_columns(
+        pl.when((closing_speed > 0) & (pl.col("dhw") >= 0))
+          .then(pl.col("dhw") / closing_speed)
+          .otherwise(-1)
+          .round(4)
+          .alias("ttc")
+    )
     
-    # Drop all old collumns (raw vector values)
     df = df.drop([
-        "x", "y", "vx", "vy", "ax", "ay", 
-        "lead_x", "lead_y", "lead_vx", "lead_length", "lead_width"
+        "lead_x", "lead_vx", "lead_length"
     ])
-    
-    # Return processed dataset sorted chronologically by frame and vehicle id
-    return df.sort(["frame", "id"])
 
+    return(df)
 
-# Process highD dataset track files
-# scnearios = None [Process all datasets]
-# scenarios = [1, 2, 3] [Process datasets of scenario 1, 2, 3]
-def process_datasets(input_dir: str, output_dir: str, scenarios: Optional[List[str]] = None):
-    input_path = Path(input_dir)
-    out_path = Path(output_dir)
-    
-    # Create output directory if it doesn't exist
+# calls the different processing steps
+def process_datasets(in_dir: str, out_dir: str):
+    in_path = Path(in_dir)
+    out_path = Path(out_dir)
+
     out_path.mkdir(parents=True, exist_ok=True)
     
-    # scenarios = None: Process all *_tracks.csv
-    # scenarios != None: Process the *_tracks.csv of given scenarios
-    if scenarios is not None:
-        # Normalize scenario IDs to strings (e.g., handles ints like 1 -> "01" or keeps "01" as is)
-        track_files = []
-        for s in scenarios:
-            prefix_str = str(s).zfill(2) if str(s).isdigit() and len(str(s)) == 1 else str(s)
-            track_file = input_path / f"{prefix_str}_tracks.csv"
-            track_files.append(track_file)
-    else:
-        # Default behavior: grab all track files in directory
-        track_files = sorted(input_path.glob("*_tracks.csv"))
+    track_files = []
     
-    # Process files
+    track_files = sorted(in_path.glob("*_tracks.csv"))
+
     for track_file in track_files:
-
-        # Skip if file not found
-        if not track_file.exists():
-            print(f"Skipping: Track file not found {track_file.name}")
-            continue
-
-        # Extract scenario prefix (e.g., "01" from "01_tracks.csv")
         prefix = track_file.name.split("_")[0]
-
-        # Locate corresponding metadata file
-        meta_file = input_path / f"{prefix}_tracksMeta.csv"
-        
-        if not meta_file.exists():
-            print(f"Skip scenario {prefix}: No meta file found.")
-            continue
-            
+        meta_file = in_path / f"{prefix}_tracksMeta.csv"
+    
         print(f"Processing scenario {prefix}...")
-        
-        # Load and normalize data
-        df = load_and_normalize_highd(str(track_file), str(meta_file))
-        
-        if df.is_empty():
-            print(f"Error loading dataframe for scenario {prefix}")
-            continue
 
-        # Compute safety metrics
-        df_processed = compute_safety_metrics(df)
+        df = translate_data(str(track_file), str(meta_file))
         
-        # Insert dataset_id column as the first column
-        df_processed = df_processed.with_columns(pl.lit(prefix).alias("dataset_id"))
-        cols = ["dataset_id"] + [c for c in df_processed.columns if c != "dataset_id"]
-        df_processed = df_processed.select(cols)
+        df_proc = calc_metric(df)
         
         # Save processed dataset
-        output_file = out_path / f"{prefix}_processed.csv"
-        df_processed.write_csv(str(output_file))
-        print(f"Saved scenario {prefix} at {output_file}")
+        out_file = out_path / f"{prefix}_processed.csv"
+        df_proc.write_csv(str(out_file))
+        print(f"Saved scenario {prefix} at {out_file}")
 
-    print("\nFinished processing selected files.")
+    print("\n Finished processing files.")
 
-
+# Entry point, defines directories
 if __name__ == "__main__":
-    INPUT_DIR = "./data/raw/highD"
-    OUTPUT_DIR = "./data/translated/highD"
+    IN_DIR = "./data/raw/highD"
+    OUT_DIR = "./data/translated/highD"
     
-    # Configuration options:
-    # 1. Set to None to process ALL available datasets in INPUT_DIR (Default)
-    # 2. Set to a list of strings/integers to process only specific scenarios (e.g., ["01", "05", "12"])
-    TARGET_SCENARIOS = None 
-
-    process_datasets(INPUT_DIR, OUTPUT_DIR, scenarios=TARGET_SCENARIOS)
+<<<<<<< HEAD
+    process_datasets(IN_DIR, OUT_DIR)
+=======
+    
+>>>>>>> main

@@ -23,6 +23,7 @@ ipython==9.18.1
 ipython_pygments_lexers==1.1.1
 jedi==0.20.1
 Jinja2==3.1.6
+joblib==1.6.0
 kiwisolver==1.5.1
 lxml==6.1.3
 MarkupSafe==3.0.4
@@ -32,6 +33,7 @@ mediapy==1.2.7
 -e git+https://github.com/metadriverse/metadrive.git@fe54b03327b14bcfc17a9a04b60c8abbee4d7ab1#egg=metadrive_simulator
 mpmath==1.3.0
 multidict==7.2.1
+narwhals==2.29.0
 networkx==3.7
 numpy==2.5.4
 nvidia-cublas==13.4.1.3
@@ -66,16 +68,19 @@ propcache==0.5.4
 psutil==7.2.2
 ptyprocess==0.7.0
 pure_eval==0.2.4
+pyarrow==26.0.1
 pygame==2.6.1
 Pygments==2.21.0
 pyparsing==3.3.3
 python-dateutil==4.0.0
 requests==2.34.2
+scikit-learn==1.9.1
 scipy==1.18.1
 setuptools==84.2.1
 shapely==2.2.0
 stack-data==0.6.3
 sympy==1.14.0
+threadpoolctl==3.8.0
 torch==2.15.0
 torch-geometric==2.8.1
 tqdm==4.70.1
