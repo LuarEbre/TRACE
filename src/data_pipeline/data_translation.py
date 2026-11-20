@@ -157,4 +157,8 @@ if __name__ == "__main__":
     IN_DIR = "./data/raw/highD"
     OUT_DIR = "./data/translated/highD"
     
+<<<<<<< HEAD
     process_datasets(IN_DIR, OUT_DIR)
+=======
+    
+>>>>>>> main
