@@ -1,6 +1,8 @@
 import json
 import random
 import sys
+import math
+from pathlib import Path
 
 # pedestrian = true? flag for spawning manually 
 # llm_output.update() -> append render configs
@@ -15,6 +17,7 @@ import sys
     "show_sidewalk": true,
     "show_crosswalk": true,
     "random_traffic": false,
+    "num_scenarios" = 1,
 """
 
 # prompt for llm model 
@@ -24,7 +27,7 @@ SYSTEM_PROMPT = (
     "You will either use "
     "1) 'type': 'block_sequence' with 'config' as a string of block codes (S=Straight, C=Curve, O=Roundabout, T=T-Intersection, r=In-Ramp, R=Out-Ramp) when specific road elements are requested, OR "
     "2) 'type': 'block_num' with 'config' as an integer (e.g. 5) when a random or unspecified road layout is requested."
-    "Default start_seed is null and num_scenarios to 1 unless specified otherwise."
+    "Default start_seed is null unless specified otherwise."
 )
 
 # python list with dictionary elements as templates
@@ -43,6 +46,8 @@ ROAD_TEMPLATES = [
     {"type": "block_num",      "config": 5,       "lane_num": 2, "random_lane_num": True,  "random_lane_width": True,  "lane_width": 3.5,  "exit_length": 50},
     {"type": "block_num",      "config": 8,       "lane_num": 3, "random_lane_num": False, "lane_width": 3.75, "random_lane_width": False, "exit_length": 50},
     # short roads
+
+    {"type": "block_sequence", "config": "ST",        "lane_num": 2, "random_lane_num": True, "lane_width": 3.1, "random_lane_width": False, "exit_length": 60},
     {"type": "block_sequence", "config": "SS",        "lane_num": 2, "random_lane_num": False, "lane_width": 3.5,  "random_lane_width": False, "exit_length": 40},
     {"type": "block_sequence", "config": "SO",        "lane_num": 2, "random_lane_num": False, "lane_width": 3.25, "random_lane_width": False, "exit_length": 35},
     {"type": "block_sequence", "config": "SCT",       "lane_num": 1, "random_lane_num": False, "lane_width": 2.8,  "random_lane_width": False, "exit_length": 35},
@@ -56,6 +61,15 @@ ROAD_TEMPLATES = [
     {"type": "block_sequence", "config": "STCTCS",    "lane_num": 2, "random_lane_num": False, "lane_width": 2.8,  "random_lane_width": False, "exit_length": 35},
     {"type": "block_sequence", "config": "SOCOS",     "lane_num": 2, "random_lane_num": False, "lane_width": 2.9,  "random_lane_width": False, "exit_length": 40},
     {"type": "block_num",      "config": 4,           "lane_num": 1, "random_lane_num": False, "lane_width": 2.7,  "random_lane_width": False, "exit_length": 35},
+
+    # super low width
+    {"type": "block_sequence", "config": "STCTS",     "lane_num": 2, "random_lane_num": False, "lane_width": 1.5,  "random_lane_width": False, "exit_length": 35},
+    {"type": "block_sequence", "config": "OTCC",      "lane_num": 1, "random_lane_num": False, "lane_width": 1.6,  "random_lane_width": False, "exit_length": 35},
+    {"type": "block_sequence", "config": "SCOTS",     "lane_num": 2, "random_lane_num": False, "lane_width": 1.8,  "random_lane_width": False, "exit_length": 40},
+    {"type": "block_sequence", "config": "rSSR",      "lane_num": 2, "random_lane_num": True,  "lane_width": 2.0,  "random_lane_width": False, "exit_length": 40},
+
+    {"type": "block_num",      "config": 3,           "lane_num": 1, "random_lane_num": False, "lane_width": 1.1,  "random_lane_width": False, "exit_length": 30},
+    {"type": "block_num",      "config": 5,           "lane_num": 1, "random_lane_num": False, "lane_width": 1.4,  "random_lane_width": True,  "exit_length": 35},
 
     # High width
     {"type": "block_sequence", "config": "SSSSSS",    "lane_num": 5, "random_lane_num": False, "lane_width": 4.2,  "random_lane_width": False, "exit_length": 75},
@@ -135,41 +149,89 @@ DRIVING_BEHAVIOUR = [
 # start_seed, num_scenarios
 INITIALIZATION = []
 
-def generate_random_datasets(amount:int):
+def log_uniform_int(low: int, high: int) -> int:
+    return int(round(math.exp(random.uniform(math.log(low), math.log(high)))))
+
+def log_uniform_float(low: float, high: float, decimals: int = 2) -> float:
+    val = math.exp(random.uniform(math.log(low), math.log(high)))
+    return round(val, decimals)
+
+def generate_random_datasets(amount:int) -> list[dict]:
+    data_sets = []
     # generate random variance of correct JSON datasets 
-    road = random.choice(ROAD_TEMPLATES).copy()
-    behaviour = random.choice(DRIVING_BEHAVIOUR).copy()
-    start_seed = None if random.random() < 0.75 else random.randint(1, 10000) # 75% of cases the seed is None
-    num_scenarios = 1 # force to 1?  
-    target_json = {
-        "start_seed": start_seed, # null or random [1,10.000]
-        "random_lane_width": road["random_lane_width"],
-        "random_lane_num": road["random_lane_num"],
-        "traffic_density": behaviour["traffic_density"],
-        "need_inverse_traffic": behaviour["need_inverse_traffic"],
-        "traffic_mode": behaviour["traffic_mode"],
-        "accident_prob": behaviour["accident_prob"],
-        "static_traffic_object": behaviour["static_traffic_object"],
-        #"pedestrian": random.choice([True, False]),
-        #"cyclist": random.choice([True, False]),
-        # traffic lights? 
-        "map_config": {
-            "type": road["type"],
-            "config": road["config"],
-            "lane_num": road["lane_num"],
-            "lane_width": road["lane_width"],
-            "exit_length": road["exit_length"],
-        },
-        "vehicle_config": {
-            "no_wheel_friction": random.random() < 0.15, 
-        },
-    }
-    return target_json
+    for _ in range(amount):
+
+        road = random.choice(ROAD_TEMPLATES).copy()
+        behaviour = random.choice(DRIVING_BEHAVIOUR).copy()
+        start_seed = None if random.random() < 0.75 else random.randint(1, 10000) # 75% of cases the seed is None
+        #num_scenarios = 1 # force to 1?  
+
+        # logical adjustments
+        # if lane_number > 3 -> density lower? performance optimization
+
+        if behaviour["traffic_density"] > 0:
+            behaviour["traffic_density"] = log_uniform_float(0.05, 0.90)
+
+        if behaviour["traffic_density"] == 0.0:
+            behaviour["need_inverse_traffic"] = False
+
+        if behaviour["accident_prob"] > 0:
+            behaviour["accident_prob"] = round(
+                max(0.05, min(1.0, behaviour["accident_prob"] + random.uniform(-0.12, 0.12))), 2
+            )
+
+        road["lane_width"] = round(max(1.0, min(5.0, road["lane_width"] + random.uniform(-0.25, 0.25))), 2)
+        road["exit_length"] = max(25, min(100, road["exit_length"] + random.choice([-10, -5, 0, 5, 10, 15])))
+
+        if road["type"] == "block_sequence" and random.random() < 0.2:
+            length = log_uniform_int(2, 25)
+            road["config"] = "".join(
+                random.choices(["S", "C", "O", "T", "r", "R"], weights=[5, 3, 2, 2, 1, 1], k=length)
+            )
+
+        target_json = {
+            "start_seed": start_seed, # null or random [1,10.000]
+            "random_lane_width": road["random_lane_width"],
+            "random_lane_num": road["random_lane_num"],
+            "traffic_density": behaviour["traffic_density"],
+            "need_inverse_traffic": behaviour["need_inverse_traffic"],
+            "traffic_mode": behaviour["traffic_mode"],
+            "accident_prob": behaviour["accident_prob"],
+            "static_traffic_object": behaviour["static_traffic_object"],
+            #"pedestrian": random.choice([True, False]),
+            #"cyclist": random.choice([True, False]),
+            # traffic lights? 
+            "map_config": {
+                "type": road["type"],
+                "config": road["config"],
+                "lane_num": road["lane_num"],
+                "lane_width": road["lane_width"],
+                "exit_length": road["exit_length"],
+            },
+            "vehicle_config": {
+                "no_wheel_friction": random.random() < 0.15, 
+            },
+        }
+
+        data_sets.append(target_json)
+    return data_sets
     
 def main():
-   amount_json = int (sys.stdin.readline())
-   generate_random_datasets(amount_json)
+    print("Enter amount of json datasets that should be created")
+    amount_json = int (sys.stdin.readline().strip())
+    data_sets = generate_random_datasets(amount_json)
 
+    # define output file 
+    project_root = Path(__file__).resolve().parents[3]
+    output_file = project_root / "data" / "training_data" / "llm_config_trainset.jsonl"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # open or create output_file, "w" = overwrite 
+    with open(output_file, "w", encoding="utf-8") as f:
+        for item in data_sets:
+            f.write(json.dumps(item) + "\n") # convert python dictionary into correct json string
+
+    print("Successfully created Jsonln output")
 
 if __name__ == "__main__":
     main()
