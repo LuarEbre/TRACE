@@ -1,15 +1,14 @@
-import os
 import torch
 import torch.nn as nn
+from pathlib import Path
 from torch_geometric.loader import DataLoader
 
-# Imports from own functions
-from src.models.gnn_model import GNNTrafficRiskPredictor
-from data_pipeline.dataset_preproccessing.gnn_test_set import generate_test_dataset
+# Imports model definition
+from src.models.gnn_model import GNNVehiclePositionPredictor
 
 def main():
-    DATASET_PATH = "data/gnn_test_dataset.pt"
-    SAVE_PATH = "trained_models/gnn_trained.pth" 
+    DATASET_PATH = Path("data/training_data/highD")
+    SAVE_PATH = "trained_models/gnn_trained.pth"
     
     EPOCHS = 10
     BATCH_SIZE = 16
@@ -18,16 +17,10 @@ def main():
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # load data
-    if os.path.exists(DATASET_PATH):
-        dataset = torch.load(DATASET_PATH, weights_only=False)
-    else:
-        dataset = generate_test_dataset(num_samples=200, save_path=SAVE_PATH)
-
-    # Create dataloader (does batching)
-    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+    pth_files = sorted(DATASET_PATH.glob("*.pth"))
 
     # Create model, optimizer and loss function(MSE)
-    model = GNNTrafficRiskPredictor(in_features=8, hidden_dim=64).to(DEVICE)
+    model = GNNVehiclePositionPredictor(in_features=16, hidden_dim=64).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.MSELoss()
 
@@ -37,29 +30,36 @@ def main():
     model.train()
     for epoch in range(EPOCHS):
         total_loss = 0.0
+        total_batches = 0
+        
+        for pth in pth_files:
+            scenario = torch.load(pth, weights_only=False)
 
-        # Train model with data in batches
-        for batch in loader:
+            loader = DataLoader(scenario, batch_size=BATCH_SIZE, shuffle=True)
             
-            # move data to device
-            batch = batch.to(DEVICE)
+            # Train model with data in batches
+            for batch in loader:
+            
+                # move data to device
+                batch = batch.to(DEVICE)
 
-            # reset gradients to zero
-            optimizer.zero_grad()
+                # reset gradients to zero
+                optimizer.zero_grad()
  
-            # forward pass
-            pred_risks = model(batch)
+                # forward pass
+                pred_risks = model(batch)
 
-            # Calc loss (pred vs ground truth y)
-            loss = criterion(pred_risks, batch.y)
+                # Calc loss (pred vs ground truth y)
+                loss = criterion(pred_risks, batch.y)
 
-            # Backpropagation and optimize step
-            loss.backward()
-            optimizer.step()
+                # Backpropagation and optimize step
+                loss.backward()
+                optimizer.step()
 
-            total_loss += loss.item()
+                total_loss += loss.item()
+                total_batches += 1
     
-        print(f"Epoch {epoch+1} | Loss: {total_loss / len(loader):.4f}")
+        print(f"Epoch {epoch+1} | Loss: {total_loss / total_batches:.4f}")
 
     # Save trained model
     torch.save(model.state_dict(), SAVE_PATH)
