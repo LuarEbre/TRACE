@@ -93,7 +93,7 @@ def calc_metric(df: pl.DataFrame) -> pl.DataFrame:
           .then(pl.col("lead_x") - (pl.col("x") + pl.col("length")))
           .when((pl.col("vx") < 0) & pl.col("lead_x").is_not_null())
           .then(pl.col("x") - (pl.col("lead_x") + pl.col("length")))
-          .otherwise(-1)
+          .otherwise(None)
           .round(4)
           .alias("dhw")
     )
@@ -104,7 +104,7 @@ def calc_metric(df: pl.DataFrame) -> pl.DataFrame:
     df = df.with_columns(
         pl.when(pl.col("vx").abs() > 0)
           .then(pl.col("dhw") / pl.col("vx").abs())
-          .otherwise(-1)
+          .otherwise(None)
           .round(4)
           .alias("thw")
     )
@@ -113,7 +113,7 @@ def calc_metric(df: pl.DataFrame) -> pl.DataFrame:
     df = df.with_columns(
         pl.when((closing_speed > 0) & (pl.col("dhw") >= 0))
           .then(pl.col("dhw") / closing_speed)
-          .otherwise(-1)
+          .otherwise(None)
           .round(4)
           .alias("ttc")
     )
