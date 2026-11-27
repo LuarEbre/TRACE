@@ -1,5 +1,4 @@
 import polars as pl
-import torch
 
 def calc_and_add_metrics(df: pl.DataFrame) -> pl.DataFrame:
     
@@ -78,16 +77,3 @@ def calc_and_add_metrics(df: pl.DataFrame) -> pl.DataFrame:
 
     # Return processed dataset sorted chronologically by frame and vehicle id
     return df.sort(["frame", "id"])
-
-
-if __name__ == "__main__":
-    
-    # 1. Get current data from metadrive
-    # includes: id, x, y, vx, vy, ax, ay, heading, length, width, lane_id
-    df = pl.DataFrame()
-
-    # 2. Calculate and add new metrics to dataframe
-    df = calc_and_add_metrics(df)
-    
-    #TODO Send to preprocessing values
-
