@@ -23,7 +23,7 @@ def calc_and_add_metrics(df: pl.DataFrame) -> pl.DataFrame:
         
         # Calc dhw
         pl.max_horizontal(
-            pl.lit(0.01), 
+            pl.lit(0.01),
             (pl.col("lead_x") - pl.col("x")) - (pl.col("length") + pl.col("lead_length")) * 0.5,
         ).alias("dhw"),
         
@@ -90,3 +90,4 @@ if __name__ == "__main__":
     df = calc_and_add_metrics(df)
     
     #TODO Send to preprocessing values
+
